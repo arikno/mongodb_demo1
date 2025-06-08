@@ -5,6 +5,11 @@ import certifi
 from bson import ObjectId
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,10 +26,12 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# MongoDB connection string
-MONGO_CONNECTION_STRING = "mongodb+srv://admin:admin@pstt.t5w1vbr.mongodb.net/?retryWrites=true&w=majority&appName=PSTT"
-DB_NAME = "search"
-COLLECTION_NAME = "person"
+# MongoDB connection string from environment variables
+MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
+DB_NAME = os.getenv("MONGO_DB_NAME", "search")
+COLLECTION_NAME = os.getenv("MONGO_COLLECTION_NAME", "person")
+SEARCH_INDEX_NAME = os.getenv("MONGO_SEARCH_INDEX_NAME", "personNamePhone")
+AUTOCOMPLETE_INDEX_NAME = os.getenv("MONGO_AUTOCOMPLETE_INDEX_NAME", "personNamesAutocomplete")
 
 # Create MongoDB client with SSL certificate verification
 client = MongoClient(MONGO_CONNECTION_STRING, tlsCAFile=certifi.where())
@@ -55,7 +62,7 @@ async def search_person(query: str):
         pipeline = [
             {
                 "$search": {
-                    "index": "personNamePhone",
+                    "index": SEARCH_INDEX_NAME,
                     "text": {
                         "path": ["first_name", "middle_name"],
                         "query": query
@@ -94,7 +101,7 @@ async def autocomplete_person(query: str):
         pipeline = [
             {
                 "$search": {
-                    "index": "personNamesAutocomplete",
+                    "index": AUTOCOMPLETE_INDEX_NAME,
                     "autocomplete": {
                         "path": "first_name",
                         "query": query
