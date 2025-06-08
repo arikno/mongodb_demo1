@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Person Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .search-container {
+            position: relative;
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-input-wrapper {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .search-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            height: 41px; /* Match height with input */
+        }
+
+        .search-button:hover {
+            background-color: #0056b3;
+        }
+
+        .dropdown {
+            position: absolute;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            display: none;
+            z-index: 1000;
+            top: 100%;
+            left: 0;
+        }
+
+        .dropdown-item {
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        #results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Person Search</h1>
+    
+    <div class="search-container">
+        <div class="search-input-wrapper">
+            <input type="text" 
+                   id="searchInput" 
+                   class="search-input" 
+                   placeholder="Start typing a name..."
+                   autocomplete="off">
+            <div id="autocompleteDropdown" class="dropdown"></div>
+        </div>
+        <button id="searchButton" class="search-button">Search</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+        const resultsDiv = document.getElementById('results');
+
+        let debounceTimer;
+
+        // Handle input changes for autocomplete
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(debounceTimer);
+            const query = e.target.value.trim();
+            
+            if (query.length === 0) {
+                autocompleteDropdown.style.display = 'none';
+                return;
+            }
+
+            // Debounce the API call
+            debounceTimer = setTimeout(() => {
+                fetchAutocomplete(query);
+            }, 300);
+        });
+
+        // Handle search button click
+        searchButton.addEventListener('click', function() {
+            const query = searchInput.value.trim();
+            if (query) {
+                performSearch(query);
+            }
+        });
+
+        // Handle dropdown item selection
+        autocompleteDropdown.addEventListener('click', function(e) {
+            if (e.target.classList.contains('dropdown-item')) {
+                const selectedName = e.target.textContent;
+                searchInput.value = selectedName;
+                autocompleteDropdown.style.display = 'none';
+                performSearch(selectedName);
+            }
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
+                autocompleteDropdown.style.display = 'none';
+            }
+        });
+
+        // Fetch autocomplete suggestions
+        async function fetchAutocomplete(query) {
+            try {
+                console.log('Fetching autocomplete for:', query);
+                const response = await fetch(`http://localhost:8000/autocomplete/person?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                console.log('Autocomplete response:', data);
+                
+                if (response.ok) {
+                    displayAutocompleteResults(data);
+                } else {
+                    console.error('Autocomplete error:', data);
+                    autocompleteDropdown.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching autocomplete:', error);
+                autocompleteDropdown.style.display = 'none';
+            }
+        }
+
+        // Display autocomplete results
+        function displayAutocompleteResults(results) {
+            console.log('Displaying results:', results);
+            if (!results || !results.length) {
+                autocompleteDropdown.style.display = 'none';
+                return;
+            }
+
+            autocompleteDropdown.innerHTML = results
+                .map(result => `<div class="dropdown-item">${result.first_name}</div>`)
+                .join('');
+            autocompleteDropdown.style.display = 'block';
+        }
+
+        // Perform search
+        async function performSearch(query) {
+            try {
+                console.log('Performing search for:', query);
+                const response = await fetch(`http://localhost:8000/search/person?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                console.log('Search response:', data);
+                
+                if (response.ok) {
+                    resultsDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    console.error('Search error:', data);
+                    resultsDiv.textContent = `Error: ${data.detail || 'No results found'}`;
+                }
+            } catch (error) {
+                console.error('Error performing search:', error);
+                resultsDiv.textContent = `Error performing search: ${error.message}`;
+            }
+        }
+
+        // Add enter key support for search
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim();
+                if (query) {
+                    performSearch(query);
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
